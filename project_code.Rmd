@@ -1,0 +1,208 @@
+---
+title: 'ISYE 6644: Project'
+author: "Seung Woo Choi"
+date: "2023-03-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Technology & Libraries
+**Technology:** R
+**R Libraries:** DescTools, EnvStats, grid, plotrix, randtests, SciViews, tidyverse
+
+# Tausworthe Generator
+
+Implement the Tausworthe PRN generator (as described in Module 6) for reasonably large values of the parameters r, q, and l.
+
+```{r}
+# Clear the R environment
+rm(list=ls())
+
+# Set a random seed
+set.seed(6644)
+
+```
+
+```{r}
+# Libraries
+library(DescTools)
+library(EnvStats)
+library(grid)
+library(plotrix)
+library(randtests)
+library(SciViews)
+library(tidyverse)
+
+```
+
+## Tausworthe generator algorithm
+
+```{r}
+# Define a function for the Tausworthe generator
+tausworthe_generator <- function(r, q, l) {
+  
+  # Check value for r
+  # 0 < r < q
+  stopifnot("`r` must be an integer." = is.integer(r))
+  stopifnot("`r` must be greater than 0 but less than q" = r > 0 && r < q)
+  
+  # Check value for q, q_max
+  # r < q < 15
+  stopifnot("`q` must be an integer." = is.integer(q))
+  stopifnot("`q` must be greater than r but less than or equal to 10" = q > r && q <= 15)
+  
+  # Check value for l, l_max
+  # 0 < l < 15
+  stopifnot("`l` must be an integer." = is.integer(l))
+  stopifnot("`l` must be greater than 1 but less than or equal to 15" = l > 1 && l <= 15)
+  
+  # Define the period, max_period
+  period <- (2^q) - 1
+  max_period <- (2^15) - 1
+  
+  # Initialize the first q binary digits in the B_i sequence with 1s
+  B_i <- c()
+  for (i in 1:q) {
+    B_i <- append(B_i, 1) 
+  }
+
+  # B_i sequence from q to reasonably large number, i > q
+  for (i in (q+1):(max_period-q)) {
+    i_min_r <- i - r 
+    i_min_q <- i - q 
+    B_ir <- B_i[i_min_r]
+    B_iq <- B_i[i_min_q]
+    B_i[i] <- xor(B_ir, B_iq)
+  }
+
+  ### Convert B_i sequence to Unif(0,1)
+  
+  # Define Unif(0,1) sequence
+  unif_seq <- c()
+  
+  # Define the denominator
+  denominator <- 2^l 
+
+  # Go from base 2 to base 10
+  for (i in 1:(max_period-l)) {
+    if (i == 1) {
+      l_bits <- B_i[i:(i+l-1)]
+      l_bits_str <- as.character(l_bits)
+      l_bits_combined <- paste(l_bits_str, collapse="")
+      bintodec <- BinToDec(as.numeric(l_bits_combined)) # numerator: l-bits in base 2
+      unif <- bintodec / denominator
+      unif_seq <- append(unif_seq, unif)
+    }
+    else if ((i-1) %% l == 0) {
+      l_bits <- B_i[i:(i+l-1)]
+      l_bits_str <- as.character(l_bits)
+      l_bits_combined <- paste(l_bits_str, collapse="")
+      bintodec <- BinToDec(l_bits_combined)
+      unif <- bintodec / denominator
+      unif_seq <- append(unif_seq, unif)
+    }
+  else {}
+  }
+  
+  # Return function output
+  return(unif_seq)
+}
+
+```
+
+```{r}
+# Test the Tausworthe generator
+
+# Good values for r, q, and l
+r = 9 # can be any number between 1 and 14, inclusive
+q = 10 # can be any number greater than r and less than or equal to 15
+l = 15 # can be any number between 2 and 15, inclusive
+
+# Bad values for r, q, and l (uncomment to run)
+#r=1
+#q=2
+#l=2
+expected_length = ceiling(((2^15)-1 - l) / l)
+t_gen <- tausworthe_generator(r=as.integer(r), q=as.integer(q), l=as.integer(l))
+
+# Print the expected length and actual length of the generator's output
+print(expected_length)
+print(length(t_gen))
+
+```
+
+```{r}
+# Perform a decent number of statistical tests on the generator to see that it gives PRN's that are approximately i.i.d. Uniform (0,1)
+
+# Histogram to visualize distribution of data
+hist(t_gen, 10, main = "Histogram of the Tausworthe Generator", xlab = "Tausworthe Generator");
+
+# Test #1: Chi-squared test for goodness-of-fit - Are the PRNs approximately Unif(0,1)?
+gofTest(t_gen[!is.na(t_gen)], test='chisq', distribution = 'unif');
+
+# Conclusion: The null hypothesis is that the data all have equal probabilities. The alternative is that the data do not have equal probabilities. Since the p-value of 1 is greater than 0.05, we fail to reject the null hypothesis that the data all have equal probabilities. This means that the data do have equal probabilities.
+
+# Test #2: Runs test for independence - Are the PRNs approximately independent?
+runs.test(t_gen);
+
+# Conclusion: The null hypothesis is that the data was produced randomly. The alternative hypothesis is that the data was not produced randomly. Since the p-value of 0.3915 is greater than 0.05, we fail to reject the null hypothesis that the data was produced randomly. This means that the data was produced randomly.
+
+# Test #3: Kolmogorov_Smirnov test - Does the data come from a Uniform(0,1) distribution?
+ks.test(x=t_gen, y="punif")
+
+# Conclusion: The null hypothesis is that the data comes from a Uniform(0,1) distribution, and the alternative hypothesis is that the data does not come from a Uniform(0,1) distribution. Since the p-value of 0.9998 is greater than 0.05, we fail to reject the null hypothesis that the data comes from a Uniform(0,1) distribution. This means that the data does come from a Uniform(0,1) distribution.
+
+```
+
+```{r}
+# Plot adjacent PRN's (U_i, U_i+1), i = 1,2,..., on the unit square to see if there are any patterns
+
+# Define variables
+plot_points <- t_gen
+x_vals <- c()
+y_vals <- c()
+
+# For-loop to create each adjacent pair
+for (i in 1:length(plot_points)) {
+  if (i %% 2 != 0) {
+    x_vals <- append(x_vals, plot_points[i])
+  }
+  else {
+    y_vals <- append(y_vals, plot_points[i])
+  }
+}
+
+if (length(x_vals) != length(y_vals)) {
+  x_vals <- head(x_vals, -1)
+}
+
+# Plot adjacent PRNs on the unit square
+plot(c(0,2), c(0,2), type = "n", asp=1, xlim = c(0,2), ylim=c(0,2), xlab='x values', ylab='y values')
+rect(0, 0, 1, 1) 
+points(x_vals, y_vals)
+
+```
+
+```{r}
+# Generate a few Nor(0,1) deviates (any way you want) using Unif(0,1)'s from your Tausworthe generator
+
+# Method 1: Inverse of the CDF (inverse transform theorem)
+cdf_inverse <- qnorm(p=t_gen, mean=0, sd=1)
+hist(cdf_inverse);
+
+# Method 2: Box-Muller method for normal distribution
+U1 <- tausworthe_generator(r=as.integer(9), q=as.integer(10), l=as.integer(15))
+U2 <- tausworthe_generator(r=as.integer(7), q=as.integer(10), l=as.integer(15))
+
+Z1 = sqrt(-2*ln(U1))*cos(2*pi*U2)
+Z2 = sqrt(-2*ln(U1))*sin(2*pi*U2)
+
+hist(Z1);
+hist(Z2)
+
+```
+
+# END
