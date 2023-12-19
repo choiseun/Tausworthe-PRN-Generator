@@ -3,8 +3,8 @@ title: "Implementation and Analysis of the Tausworthe Pseudo-Random Number Gener
 author: "Seung Woo Choi"
 date: "2023-03-01"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
