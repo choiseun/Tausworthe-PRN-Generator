@@ -1,8 +1,10 @@
 ---
-title: 'ISYE 6644: Project'
+title: "Implementation and Analysis of the Tausworthe Pseudo-Random Number Generator"
 author: "Seung Woo Choi"
 date: "2023-03-01"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -10,7 +12,9 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # Technology & Libraries
+
 **Technology:** R
+
 **R Libraries:** DescTools, EnvStats, grid, plotrix, randtests, SciViews, tidyverse
 
 # Tausworthe Generator
